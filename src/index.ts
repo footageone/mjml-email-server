@@ -1,8 +1,10 @@
 import express from 'express';
 import bodyParser from 'body-parser';
+import { StatusCodes } from 'http-status-codes';
 import { findTemplate } from './find-template';
 import { compileTemplate } from './compile-template';
 import { replacePlaceholder } from './replace-placeholder';
+import { errorResponse } from './error-response';
 
 const app = express();
 const port = 3000;
@@ -16,14 +18,14 @@ app.get('/', (req, res) => {
 
 app.post('*', (req, res) => {
   if (req.url.startsWith('/_')) {
-    return res.sendStatus(400);
+    return errorResponse(res, StatusCodes.BAD_REQUEST);
   } else {
     let template;
     try {
       template = findTemplate(req.url);
     } catch (e) {
       console.error(e);
-      return res.sendStatus(404);
+      return errorResponse(res, StatusCodes.NOT_FOUND);
     }
 
     try {
@@ -31,11 +33,14 @@ app.post('*', (req, res) => {
       const compiledTemplate = compileTemplate(populatedTemplate);
       if (req.accepts('text/html')) {
         res.send(compiledTemplate.html);
-      } else {
+      } else if (req.accepts('application/json')) {
         res.send(compiledTemplate);
+      } else {
+        return errorResponse(res, StatusCodes.NOT_ACCEPTABLE);
       }
     } catch (e) {
-      return res.sendStatus(500);
+      console.error(e);
+      return errorResponse(res, StatusCodes.INTERNAL_SERVER_ERROR);
     }
   }
 });
